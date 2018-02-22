@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="8dp"
+        android:layout_marginTop="4dp"
+        android:fontFamily="sans-serif"
+        android:labelFor="@+id/edit_package_name"
+        android:text="@string/manual_package_label"
+        android:textSize="16sp"/>
+
+    <EditText
+        android:id="@+id/edit_package_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="1dp"
+        android:hint="@string/manual_package_hint"
+        android:textSize="16sp"/>
+
+    <CheckBox
+        android:id="@+id/check_deop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start|center_vertical"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:text="@string/trigger_deoptimised"/>
+
+    <CheckBox
+        android:id="@+id/check_debug"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start|center_vertical"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:text="@string/trigger_debuggable"/>
+</LinearLayout>

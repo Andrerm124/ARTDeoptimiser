@@ -1,0 +1,12 @@
+<resources>
+
+    <style name="HeaderText" parent="@android:style/TextAppearance.Large">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/primaryLight</item>
+        <item name="android:textStyle">normal|bold</item>
+    </style>
+
+    <style name="AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar"/>
+
+    <style name="PopupOverlay" parent="ThemeOverlay.AppCompat.Light"/>
+</resources>

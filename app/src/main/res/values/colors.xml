@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#F1CC02</color>
+    <color name="primaryLight">#EFDE86</color>
+    <color name="primaryWashed">#88EFDE86</color>
+    <color name="textPrimary">#EEEEEE</color>
+    <color name="textSecondary">#777777</color>
+    <color name="backgroundPrimary">#333333</color>
+    <color name="backgroundPrimaryFaint">#383838</color>
+    <color name="backgroundSecondary">#555555</color>
+    <color name="backgroundTertiary">#444444</color>
+    <color name="error">#EF5353</color>
+    <color name="errorLight">#EF8686</color>
+    <color name="errorWashed">#88EF5353</color>
+    <color name="errorDark">#C44444</color>
+    <color name="success">#53EF53</color>
+    <color name="successLight">#86EF86</color>
+    <color name="successWashed">#8853EF53</color>
+</resources>
