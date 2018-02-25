@@ -32,43 +32,42 @@ public class HookManager implements IXposedHookLoadPackage {
 		if (lpparam.packageName.equals("android")) {
 			try {
 				ClassLoader classLoader = lpparam.classLoader;
-				Class packageParserClass = findClass("android.content.pm.PackageParser", classLoader);
-				Class packageClass = findClass("android.content.pm.PackageParser$Package", classLoader);
 
-				findAndHookMethod(
-						packageParserClass,
-						"parseBaseApplication", packageClass, Resources.class, XmlResourceParser.class, int.class, String[].class,
+				XposedBridge.hookAllMethods(
+						findClass("com.android.server.pm.PackageDexOptimizer", classLoader),
+						"performDexOpt",
 						new XC_MethodHook() {
-							@Override protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-								Log.d(TAG, "Parsing Base Application");
+							@Override protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+								Log.d(TAG, "PackageDexOptimiser running");
 
-								// Lock required as this function is highly multi-threaded ===================
+								Object packageObj = param.args[0];
+								ApplicationInfo appInfo = (ApplicationInfo) getObjectField(packageObj, "applicationInfo");
+								String packageName = appInfo.packageName;
+								Log.d(TAG, "PackageDexOptimiser running: " + packageName);
+
 								synchronized (DEOP_FOLDER_LOCK) {
 									if (deopFolder == null) {
 										deopFolder = PackageUtils.getDeoptimisationFolder();
 									}
 								}
 
-								ApplicationInfo appInfo = (ApplicationInfo) getObjectField(param.args[0], "applicationInfo");
+								if ((appInfo.flags & ApplicationInfo.FLAG_VM_SAFE_MODE) != ApplicationInfo.FLAG_VM_SAFE_MODE) {
+									Log.d(TAG, "App safemode not assigned");
 
-								if (appInfo == null) {
-									return;
+									if (new File(deopFolder, packageName + PackageUtils.DEOP_EXT).exists()) {
+										Log.d(TAG, "Assigning safe mode");
+										appInfo.flags |= ApplicationInfo.FLAG_VM_SAFE_MODE;
+									}
 								}
 
-								String packageName = appInfo.packageName;
+								if ((appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != ApplicationInfo.FLAG_DEBUGGABLE) {
+									Log.d(TAG, "App debuggable not assigned");
 
-								XposedBridge.log("Adjusting package flags for: " + packageName);
-
-								Log.d(TAG, "Starting Flag Manipulation");
-								Log.d(TAG, "Start Flags: " + appInfo.flags);
-
-								if (new File(deopFolder, packageName + PackageUtils.DEOP_EXT).exists())
-									appInfo.flags |= ApplicationInfo.FLAG_VM_SAFE_MODE;
-
-								if (new File(deopFolder, packageName + PackageUtils.DEBUG_EXT).exists())
-									appInfo.flags |= ApplicationInfo.FLAG_DEBUGGABLE;
-
-								Log.d(TAG, "End Flags: " + appInfo.flags);
+									if (new File(deopFolder, packageName + PackageUtils.DEBUG_EXT).exists()) {
+										Log.d(TAG, "Assigning debuggable mode");
+										appInfo.flags |= ApplicationInfo.FLAG_DEBUGGABLE;
+									}
+								}
 							}
 						}
 				);
