@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -25,7 +26,7 @@ import java.util.List;
 @SuppressWarnings("DanglingJavadoc") public class PackageListAdapter extends ArrayAdapter<PackageData> {
 	private Provider<PackageData> dataUpdateCallback;
 
-	public PackageListAdapter(@NonNull Context context, @NonNull List<PackageData> objects, Provider<PackageData> dataUpdateCallback) {
+	PackageListAdapter(@NonNull Context context, @NonNull List<PackageData> objects, Provider<PackageData> dataUpdateCallback) {
 		super(context, 0, objects);
 		this.dataUpdateCallback = dataUpdateCallback;
 	}
@@ -88,22 +89,40 @@ import java.util.List;
 	}
 
 	private void buildItemRow(PackageData packageData, View convertView) {
+		// Click listeners for buttons and toggles ===================================
+		OnClickListener forceDeopClickListener = v -> {
+			packageData.setForceDeop(!packageData.isForceDeop());
+			buildItemRow(packageData, convertView);
+			dataUpdateCallback.call(packageData);
+		};
+
+		OnClickListener forceDebugClickListener = v -> {
+			packageData.setForceDebuggable(!packageData.isForceDebuggable());
+			buildItemRow(packageData, convertView);
+			dataUpdateCallback.call(packageData);
+		};
+		// ===========================================================================
+
 		// ===========================================================================
 		ViewUtils.setText(convertView, R.id.txt_app_name, packageData.getAppName());
 		ViewUtils.setText(convertView, R.id.txt_package, packageData.getPackageName());
 		// ===========================================================================
 
 		// Package Icon Assigning ====================================================
-		ViewUtils.<ImageView>getView(convertView, R.id.img_deop)
-				.setImageResource(
-						packageData.isForceDeop()
-								? R.drawable.check_green : R.drawable.cancel_red
-				);
-		ViewUtils.<ImageView>getView(convertView, R.id.img_debug)
-				.setImageResource(
-						packageData.isForceDebuggable()
-								? R.drawable.check_green : R.drawable.cancel_red
-				);
+		ImageView imgDeop = ViewUtils.getView(convertView, R.id.img_deop);
+		ImageView imgDebug = ViewUtils.getView(convertView, R.id.img_debug);
+
+		imgDeop.setImageResource(
+				packageData.isForceDeop()
+						? R.drawable.check_green : R.drawable.cancel_red
+		);
+		imgDebug.setImageResource(
+				packageData.isForceDebuggable()
+						? R.drawable.check_green : R.drawable.cancel_red
+		);
+
+		imgDeop.setOnClickListener(forceDeopClickListener);
+		imgDebug.setOnClickListener(forceDebugClickListener);
 		// ===========================================================================
 
 
@@ -113,6 +132,7 @@ import java.util.List;
 		 * ===========================================================================
 		 */
 		ViewGroup buttonContainer = ViewUtils.getView(convertView, R.id.button_container);
+		buttonContainer.setVisibility(View.GONE);
 		Button buttonDeop = ViewUtils.getView(buttonContainer, R.id.btn_deop);
 		Button buttonDebug = ViewUtils.getView(buttonContainer, R.id.btn_debug);
 
@@ -120,16 +140,8 @@ import java.util.List;
 		assignButtonState(buttonDeop, packageData.isForceDeop());
 		assignButtonState(buttonDebug, packageData.isForceDebuggable());
 
-		buttonDeop.setOnClickListener(v -> {
-			packageData.setForceDeop(!packageData.isForceDeop());
-			buildItemRow(packageData, convertView);
-			dataUpdateCallback.call(packageData);
-		});
-		buttonDebug.setOnClickListener(v -> {
-			packageData.setForceDebuggable(!packageData.isForceDebuggable());
-			buildItemRow(packageData, convertView);
-			dataUpdateCallback.call(packageData);
-		});
+		buttonDeop.setOnClickListener(forceDeopClickListener);
+		buttonDebug.setOnClickListener(forceDebugClickListener);
 		// ===========================================================================
 
 		// Animated Expanding/Collapsing =============================================

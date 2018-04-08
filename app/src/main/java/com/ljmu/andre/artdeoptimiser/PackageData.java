@@ -9,6 +9,7 @@ import static com.ljmu.andre.artdeoptimiser.Utils.StringUtils.nullSafe;
  * It and its contents are free to use by all
  */
 
+@SuppressWarnings({"UnusedReturnValue", "WeakerAccess", "SameParameterValue"})
 public class PackageData implements Comparable<PackageData> {
 	private String appName;
 	private String packageName;

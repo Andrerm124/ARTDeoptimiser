@@ -1,22 +1,23 @@
 package com.ljmu.andre.artdeoptimiser.Utils;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.annotation.StringDef;
 import android.util.Log;
 
-import com.google.gson.Gson;
+import com.jaredrummler.android.shell.CommandResult;
+import com.jaredrummler.android.shell.Shell;
 import com.ljmu.andre.artdeoptimiser.PackageData;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static com.ljmu.andre.artdeoptimiser.MainActivity.TAG;
-import static com.ljmu.andre.artdeoptimiser.Utils.MiscUtils.getExternalDir;
 
 /**
  * This class was created by Andre R M (SID: 701439)
@@ -24,130 +25,179 @@ import static com.ljmu.andre.artdeoptimiser.Utils.MiscUtils.getExternalDir;
  */
 
 public class PackageUtils {
-	public static final String DEOP_EXT = ".fdeop";
-	public static final String DEBUG_EXT = ".fdebug";
+	public static final String PROP_DEOPTIMISE = "deoptimise";
+	public static final String PROP_DEBUG = "debug";
+	private static final String PROP_HEADER = "persist.artdeop.";
+	private static final String PROP_INVALIDATE = "invalidate";
+	private static final int PROP_CHUNK_SIZE = 90;
 
-	public static File getDeoptimisationFolder() {
-		File deopFolder = new File(
-				getExternalDir(),
-				"ARTDeoptimisation"
-		);
+	public static List<PackageData> getStoredPackageData() {
+		List<PackageData> packageDataList = new ArrayList<>();
 
-		Log.d(TAG, "DeopFolder: " + deopFolder);
+		Set<String> deopPackageSet = getDeopOrDebugProps(PROP_DEOPTIMISE);
+		Set<String> debugPackageSet = getDeopOrDebugProps(PROP_DEBUG);
 
-		if (!deopFolder.exists() && !deopFolder.mkdir())
-			throw new IllegalStateException("Deoptimisation folder couldn't be found or created");
+		for (String deopPackage : deopPackageSet) {
+			boolean forceDebuggable = debugPackageSet.contains(deopPackage);
 
-		deopFolder.setReadable(true, false);
-		return deopFolder;
+			packageDataList.add(
+					new PackageData(deopPackage)
+							.setForceDeop(true)
+							.setForceDebuggable(forceDebuggable)
+			);
+
+			if (forceDebuggable) {
+				debugPackageSet.remove(deopPackage);
+			}
+		}
+
+		for (String debugPackage : debugPackageSet) {
+			packageDataList.add(
+					new PackageData(debugPackage)
+							.setForceDebuggable(true)
+							.setForceDeop(false)
+			);
+		}
+
+		return packageDataList;
 	}
 
-	public static Result<Boolean, String> updatePackageDataFiles(PackageData packageData) {
-		File deopFolder = getDeoptimisationFolder();
-		File deopFile = new File(deopFolder, packageData.getPackageName() + DEOP_EXT);
-		File debugFile = new File(deopFolder, packageData.getPackageName() + DEBUG_EXT);
+	@NonNull public static Set<String> getDeopOrDebugProps(@PropType String propType) {
+		Set<String> packageSet = new HashSet<>();
 
-		Result<Boolean, String> result = new Result<>(true, "Success");
+		StringBuilder propertyBuilder = new StringBuilder("");
 
-		if (packageData.isForceDeop()) {
-			try {
-				if (!deopFile.exists() && !deopFile.createNewFile()) {
-					result.setKey(false)
-							.setValue("Failed to create deoptimisation file marker");
-				}
-			} catch (IOException e) {
-				result.setKey(false)
-						.setValue("Failed to create deoptimisation file marker");
+		int overflowIndex = 0;
+		String propOverflow;
+		while (true) {
+			String propertyName = PROP_HEADER + propType + "." + (++overflowIndex);
+
+			if ((propOverflow = PropUtils.getProperty(propertyName)).isEmpty()) {
+				break;
 			}
-		} else {
-			if(deopFile.exists() && !deopFile.delete()) {
-				result.setKey(false)
-						.setValue("Failed to delete deoptimation file marker");
-			}
+
+			Log.d(TAG, "Overflow: " + propOverflow);
+
+			propertyBuilder.append(propOverflow);
 		}
 
-		if (packageData.isForceDebuggable()) {
-			try {
-				if (!debugFile.exists() && !debugFile.createNewFile()) {
-					String errorMessage = "Failed to create debug file marker";
+		String packagesProperty = propertyBuilder.toString();
 
-					result.setKey(false)
-							.setValue(
-									result.getValue() == null ? errorMessage
-											: result.getValue() + "\n" + errorMessage
-							);
-				}
-			} catch (IOException e) {
-				String errorMessage = "Failed to create debug file marker";
-
-				result.setKey(false)
-						.setValue(
-								result.getValue() == null ? errorMessage
-										: result.getValue() + "\n" + errorMessage
-						);
-			}
-		} else {
-			if(debugFile.exists() && !debugFile.delete()) {
-				String errorMessage = "Failed to delete debug file marker";
-
-				result.setKey(false)
-						.setValue(
-								result.getValue() == null ? errorMessage
-										: result.getValue() + "\n" + errorMessage
-						);
-			}
+		if (packagesProperty.isEmpty()) {
+			Log.e(TAG, "Couldn't read " + propType + " app list");
+			return packageSet;
 		}
 
-		return result;
+		String[] packageArray = packagesProperty.split(",");
+
+		for (String deopPackage : packageArray)
+			packageSet.add(deopPackage.trim());
+
+		Log.d(TAG, "DeopList: " + packageSet);
+
+		return packageSet;
 	}
 
-	public static Collection<PackageData> readSavedPackageData() {
-		Log.d(TAG, "Reading saved package data");
+	public static boolean shouldInvalidateSets() {
+		return PropUtils.getProperty(PROP_HEADER + "." + PROP_INVALIDATE).equals("1");
+	}
 
-		File deopFolder = getDeoptimisationFolder();
+//	public static Result<Boolean, String> setDeopOrDebugProps(@PropType String propType, Collection<PackageData> packageDataCollection) {
+//
+//	}
 
-		File[] files = deopFolder.listFiles(file -> {
-			if (file.isDirectory())
-				return false;
+	public static Result<Boolean, String> refreshPropertiesList(Collection<PackageData> packageDataCollection) {
+		StringBuilder deopListProperty = null;
+		StringBuilder debugListProperty = null;
 
-			String filename = file.getName();
-
-			return filename.endsWith(DEOP_EXT) || filename.endsWith(DEBUG_EXT);
-		});
-
-		if (files == null)
-			return Collections.emptyList();
-
-		Map<String, PackageData> packageDataMap = new HashMap<>(16);
-
-		for (File file : files) {
-			String filename = file.getName();
-			String packageName;
-			int fileType;
-
-			if (filename.endsWith(DEOP_EXT)) {
-				fileType = 1;
-				packageName = filename.replace(DEOP_EXT, "");
-			} else if (filename.endsWith(DEBUG_EXT)) {
-				fileType = 2;
-				packageName = filename.replace(DEBUG_EXT, "");
-			} else
-				continue;
-
-			PackageData packageData = packageDataMap.get(packageName);
-
-			if (packageData == null) {
-				packageData = new PackageData(packageName);
-				packageDataMap.put(packageName, packageData);
+		for (PackageData packageData : packageDataCollection) {
+			if (packageData.isForceDeop()) {
+				if (deopListProperty == null)
+					deopListProperty = new StringBuilder(packageData.getPackageName());
+				else
+					deopListProperty.append(",").append(packageData.getPackageName());
 			}
 
-			if (fileType == 1) {
-				packageData.setForceDeop(true);
-			} else {
-				packageData.setForceDebuggable(true);
+			if (packageData.isForceDebuggable()) {
+				if (debugListProperty == null)
+					debugListProperty = new StringBuilder(packageData.getPackageName());
+				else
+					debugListProperty.append(",").append(packageData.getPackageName());
 			}
 		}
 
-		return packageDataMap.values();
+		Log.d(TAG, "DeopProperty: " + deopListProperty);
+		Log.d(TAG, "DebugProperty: " + debugListProperty);
+
+		setDeopOrDebugProps(PROP_DEOPTIMISE, deopListProperty != null ? deopListProperty.toString() : null);
+		setDeopOrDebugProps(PROP_DEBUG, debugListProperty != null ? debugListProperty.toString() : null);
+
+		return null;
+	}
+
+	private static void setDeopOrDebugProps(@PropType String propType, @Nullable String properties) {
+		Log.d(TAG, "Setting property for: " + propType + " | " + properties);
+		List<String> commands = new ArrayList<>();
+
+		int propertyOverflowIndex = 1;
+
+		if (properties != null) {
+			while (true) {
+				String propertyName = PROP_HEADER + propType + "." + propertyOverflowIndex;
+				if (properties.length() <= 90) {
+					commands.add("setprop " + propertyName + " \"" + properties + "\"");
+					Log.d(TAG, "AddCommand: " + "setprop " + propertyName + " \"" + properties + "\"");
+					propertyOverflowIndex++;
+					break;
+				}
+
+				int propertyChunkStartIndex = (propertyOverflowIndex - 1) * PROP_CHUNK_SIZE;
+				int propertyChunkEndIndex = Math.min(properties.length(), propertyChunkStartIndex + PROP_CHUNK_SIZE);
+
+				Log.d(TAG, "SetProp indices: " + propertyChunkStartIndex + " | " + propertyChunkEndIndex + " | " + properties.length());
+				if (propertyChunkStartIndex >= properties.length())
+					break;
+
+				String propertyChunk = properties.substring(propertyChunkStartIndex, propertyChunkEndIndex);
+				Log.d(TAG, "Property Chunk: " + propertyChunk);
+
+				commands.add("setprop " + propertyName + " \"" + propertyChunk + "\"");
+				Log.d(TAG, "AddCommand: " + "setprop " + propertyName + " \"" + propertyChunk + "\"");
+
+				propertyOverflowIndex++;
+			}
+		}
+
+		Log.d(TAG, "Finished Overflow Index: " + propertyOverflowIndex);
+		// Clear remaining property files ============================================
+		int overflowIndex = propertyOverflowIndex;
+		while (true) {
+			String propertyName = PROP_HEADER + propType + "." + (overflowIndex++);
+			Log.d(TAG, "Should clear file: " + propertyName);
+			if (PropUtils.getProperty(propertyName).isEmpty()) {
+				break;
+			}
+
+			Log.d(TAG, "SetCommand: " + "setprop " + propertyName + " \"\"");
+			commands.add("setprop " + propertyName + " \"\"");
+		}
+
+		if (commands.isEmpty()) {
+			Log.d(TAG, "No commands");
+			return;
+		}
+
+		commands.add("setprop " + PROP_HEADER + "." + PROP_INVALIDATE + " \"1\"");
+
+		CommandResult commandResult = Shell.SU.run(commands.toArray(new String[0]));
+
+		if (commandResult.isSuccessful())
+			Log.d(TAG, "Command Success");
+		else
+			Log.e(TAG, "Command Error: " + commandResult.getStderr());
+	}
+
+	@Retention(RetentionPolicy.SOURCE)
+	@StringDef({PROP_DEOPTIMISE, PROP_DEBUG}) @interface PropType {
 	}
 }

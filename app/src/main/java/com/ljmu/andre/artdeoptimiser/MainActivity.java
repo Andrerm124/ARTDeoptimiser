@@ -29,7 +29,6 @@ import android.widget.Toast;
 import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.afollestad.materialdialogs.MaterialDialog.Builder;
-import com.afollestad.materialdialogs.MaterialDialog.SingleButtonCallback;
 import com.afollestad.materialdialogs.Theme;
 import com.afollestad.materialdialogs.internal.MDButton;
 import com.ljmu.andre.artdeoptimiser.Utils.PackageUtils;
@@ -150,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
 	}
 
 	private void initialiseApplication() {
-		packageListAdapter = new PackageListAdapter(this, packageDataList, this::packageDataUpdated);
+		packageListAdapter = new PackageListAdapter(this, packageDataList, packageData -> packageDataUpdated());
 
 		listPackages.setAdapter(packageListAdapter);
 
@@ -172,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
 			}
 
 			List<PackageData> packageDataList = new ArrayList<>(16);
-			packageDataList.addAll(PackageUtils.readSavedPackageData());
+			packageDataList.addAll(PackageUtils.getStoredPackageData());
 			Log.d(TAG, "Found " + packageDataList.size() + " saved packages");
 			populateWithInstalledPackages(packageDataList);
 
@@ -345,7 +344,7 @@ public class MainActivity extends AppCompatActivity {
 							.setForceDebuggable(forceDebug);
 
 					// Update our files and UI ===================================================
-					packageDataUpdated(manualPackageData);
+					packageDataUpdated();
 					packageDataList.add(manualPackageData);
 					packageListAdapter.notifyDataSetChanged();
 
@@ -363,12 +362,10 @@ public class MainActivity extends AppCompatActivity {
 		positiveButton.setEnabled(false);
 
 		ViewUtils.<EditText>getView(materialDialog.getCustomView(), R.id.edit_package_name)
-				.addTextChangedListener(new TextChangedWatcher(text -> {
-					positiveButton.setEnabled(true);
-				}));
+				.addTextChangedListener(new TextChangedWatcher(text -> positiveButton.setEnabled(true)));
 	}
 
-	private void packageDataUpdated(PackageData packageData) {
+	private void packageDataUpdated() {
 		if (preferences.getBoolean(SHOW_TOGGLE_HINT, true)) {
 			new Builder(this)
 					.title(R.string.toggle_hint_title)
@@ -376,21 +373,22 @@ public class MainActivity extends AppCompatActivity {
 					.theme(Theme.DARK)
 					.positiveText("Okay")
 					.neutralText("Don't show again")
-					.onPositive((dialog, which) -> PackageUtils.updatePackageDataFiles(packageData))
+					.onPositive((dialog, which) -> PackageUtils.refreshPropertiesList(packageDataList))
 					.onNeutral((dialog, which) -> {
 						preferences.edit()
 								.putBoolean(SHOW_TOGGLE_HINT, false)
 								.apply();
 
 
-						PackageUtils.updatePackageDataFiles(packageData);
+						PackageUtils.refreshPropertiesList(packageDataList);
 					})
 					.show();
 
 			return;
 		}
 
-		PackageUtils.updatePackageDataFiles(packageData);
+		PackageUtils.refreshPropertiesList(packageDataList);
+		sendBroadcast(new Intent("something"));
 	}
 
 	private void packageDataGenerated(Result<String, List<PackageData>> result) {
