@@ -19,7 +19,7 @@
             android:value="true"/>
         <meta-data
             android:name="xposeddescription"
-            android:value="Easy example which makes the status bar clock red and adds a smiley"/>
+            android:value="Attempts to remove the ART Optimisations of selected applications to reduce Xposed based hanging"/>
         <meta-data
             android:name="xposedminversion"
             android:value="80"/>
